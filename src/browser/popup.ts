@@ -182,27 +182,47 @@ export class PopupView {
     this.destroy()
   }
 
-  private updatePosition() {
+  private async updatePosition() {
     if (!this.browserWindow || !this.parent) return
 
     const winBounds = this.parent.getBounds()
     const viewBounds = this.browserWindow.getBounds()
 
-    // TODO: support more orientations than just top-right
-    let x = winBounds.x + this.anchorRect.x + PopupView.POSITION_PADDING + this.anchorRect.width;
-    let y = winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height;
+    const popupPosition = {
+      left: {
+        x: winBounds.x + this.anchorRect.x + PopupView.POSITION_PADDING + this.anchorRect.width,
+        y: winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height 
+      },
+      right: {       
+        x: winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width,
+        y: winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height - 10
+      },
+      bottom: {
+        x: winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width,
+        y: winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height - 10
+      },
+      top: {
+        x: winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width,
+        y: winBounds.y + this.anchorRect.y + this.anchorRect.height + PopupView.POSITION_PADDING 
+      }
+    }
+    try {
+      const tabPosition: 'left' | 'right' | 'bottom' | 'top' = await this.parent.webContents.executeJavaScript(
+        `((${() => {
+          const className = document.querySelector('.ant-tabs-bar')?.className || '';
+          return className.includes('top-bar') ? 'top' : className.includes('right-bar') ? 'right' : className.includes('bottom-bar') ? 'bottom' : 'left';
+        }})())`
+      );
+        
+      let { x, y } = popupPosition[tabPosition];
+      x = Math.floor(x);
+      y = Math.floor(y);
 
-    // Convert to ints
-    x = Math.floor(x)
-    y = Math.floor(y)
-
-    debug(`updatePosition`, { x, y })
-
-    this.browserWindow.setBounds({
-      ...this.browserWindow.getBounds(),
-      x,
-      y,
-    })
+      debug(`updatePosition`, { x, y });
+      this.browserWindow.setBounds({ ...this.browserWindow.getBounds(), x, y });
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   /** Backwards compat for Electron <12 */
