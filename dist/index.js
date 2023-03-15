@@ -3634,24 +3634,53 @@ class PopupView {
     });
   }
 
-  updatePosition() {
+  async updatePosition() {
     if (!this.browserWindow || !this.parent) return;
     const winBounds = this.parent.getBounds();
-    const viewBounds = this.browserWindow.getBounds(); // TODO: support more orientations than just top-right
+    const viewBounds = this.browserWindow.getBounds();
+    const popupPosition = {
+      left: {
+        x: winBounds.x + this.anchorRect.x + PopupView.POSITION_PADDING + this.anchorRect.width,
+        y: winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height
+      },
+      right: {
+        x: winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width,
+        y: winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height - 10
+      },
+      bottom: {
+        x: winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width,
+        y: winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height - 10
+      },
+      top: {
+        x: winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width,
+        y: winBounds.y + this.anchorRect.y + this.anchorRect.height + PopupView.POSITION_PADDING
+      }
+    };
 
-    let x = winBounds.x + this.anchorRect.x + PopupView.POSITION_PADDING + this.anchorRect.width;
-    let y = winBounds.y + this.anchorRect.y + PopupView.POSITION_PADDING - viewBounds.height; // Convert to ints
+    try {
+      const tabPosition = await this.parent.webContents.executeJavaScript(`((${() => {
+        var _document$querySelect;
 
-    x = Math.floor(x);
-    y = Math.floor(y);
-    debug(`updatePosition`, {
-      x,
-      y
-    });
-    this.browserWindow.setBounds({ ...this.browserWindow.getBounds(),
-      x,
-      y
-    });
+        const className = ((_document$querySelect = document.querySelector('.ant-tabs-bar')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.className) || '';
+        return className.includes('top-bar') ? 'top' : className.includes('right-bar') ? 'right' : className.includes('bottom-bar') ? 'bottom' : 'left';
+      }})())`);
+      let {
+        x,
+        y
+      } = popupPosition[tabPosition];
+      x = Math.floor(x);
+      y = Math.floor(y);
+      debug(`updatePosition`, {
+        x,
+        y
+      });
+      this.browserWindow.setBounds({ ...this.browserWindow.getBounds(),
+        x,
+        y
+      });
+    } catch (error) {
+      console.log(error);
+    }
   }
   /** Backwards compat for Electron <12 */
 
