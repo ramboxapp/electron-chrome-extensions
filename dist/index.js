@@ -1741,6 +1741,17 @@ class BrowserActionAPI {
         });
       }
     });
+
+    if ( true && process.env.DEBUG) {
+      append({
+        label: 'Remove extension',
+        click: () => {
+          debug(`removing extension "${extension.name}" (${extension.id})`);
+          this.ctx.session.removeExtension(extension.id);
+        }
+      });
+    }
+
     menu.popup({
       x: Math.floor(anchorRect.x),
       y: Math.floor(anchorRect.y + anchorRect.height)
@@ -1797,7 +1808,7 @@ class CommandsAPI {
 /*!***********************************!*\
   !*** ./src/browser/api/common.ts ***!
   \***********************************/
-/*! exports provided: getExtensionManifest, getExtensionUrl, resolveExtensionPath, validateExtensionResource, ResizeType, matchSize, getIconPath, getIconImage, matchesPattern */
+/*! exports provided: getExtensionManifest, getExtensionUrl, resolveExtensionPath, validateExtensionResource, ResizeType, matchSize, getIconPath, getIconImage, matchesPattern, matchesTitlePattern */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1811,6 +1822,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getIconPath", function() { return getIconPath; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getIconImage", function() { return getIconImage; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "matchesPattern", function() { return matchesPattern; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "matchesTitlePattern", function() { return matchesTitlePattern; });
 /* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! fs */ "fs");
 /* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(fs__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! path */ "path");
@@ -1902,6 +1914,10 @@ const matchesPattern = (pattern, url) => {
   if (pattern === '<all_urls>') return true;
   const regexp = new RegExp(`^${pattern.split('*').map(escapePattern).join('.*')}$`);
   return url.match(regexp);
+};
+const matchesTitlePattern = (pattern, title) => {
+  const regexp = new RegExp(`^${pattern.split('*').map(escapePattern).join('.*')}$`);
+  return title.match(regexp);
 };
 
 /***/ }),
@@ -2123,7 +2139,7 @@ class ContextMenusAPI {
 
   buildMenuItemsForParams(webContents, params) {
     if (webContents.session !== this.ctx.session) return [];
-    const menuItemOptions = [];
+    let menuItemOptions = [];
     const conditions = {
       contextTypes: getContextTypesFromParams(params),
       targetUrl: params.srcURL || params.linkURL,
@@ -2133,6 +2149,7 @@ class ContextMenusAPI {
     for (const [extensionId, propItems] of this.menus) {
       const extension = this.ctx.session.getExtension(extensionId);
       if (!extension) continue;
+      const extensionMenuItemOptions = [];
 
       for (const [, props] of propItems) {
         if (matchesConditions(props, conditions)) {
@@ -2140,11 +2157,40 @@ class ContextMenusAPI {
             extension,
             props,
             webContents,
-            params,
-            showIcon: true
+            params
           };
-          menuItemOptions.push(menuItem);
+          extensionMenuItemOptions.push(menuItem);
         }
+      }
+
+      const topLevelItems = extensionMenuItemOptions.filter(opt => !opt.props.parentId);
+
+      if (topLevelItems.length > 1) {
+        // Create new top-level item to group children
+        const groupId = `group${extension.id}`;
+        const groupMenuItemOptions = {
+          extension,
+          webContents,
+          props: {
+            id: groupId,
+            title: extension.name
+          },
+          params,
+          showIcon: true
+        }; // Reassign children to group item
+
+        const children = extensionMenuItemOptions.map(opt => opt.props.parentId ? opt : { ...opt,
+          props: { ...opt.props,
+            parentId: groupId
+          }
+        });
+        menuItemOptions = [...menuItemOptions, groupMenuItemOptions, ...children];
+      } else if (extensionMenuItemOptions.length > 0) {
+        // Set all children to show icon
+        const children = extensionMenuItemOptions.map(opt => ({ ...opt,
+          showIcon: true
+        }));
+        menuItemOptions = [...menuItemOptions, ...children];
       }
     }
 
@@ -2584,11 +2630,29 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "TabsAPI", function() { return TabsAPI; });
 /* harmony import */ var electron__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! electron */ "electron");
 /* harmony import */ var electron__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(electron__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var _windows__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./windows */ "./src/browser/api/windows.ts");
+/* harmony import */ var _common__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./common */ "./src/browser/api/common.ts");
+/* harmony import */ var _windows__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./windows */ "./src/browser/api/windows.ts");
+
 
 
 
 const debug = __webpack_require__(/*! debug */ "./node_modules/debug/src/index.js")('electron-chrome-extensions:tabs');
+
+const validateExtensionUrl = (url, extension) => {
+  // Convert relative URLs to absolute if needed
+  try {
+    url = new URL(url, extension.url).href;
+  } catch (e) {
+    throw new Error('Invalid URL');
+  } // Prevent creating chrome://kill or other debug commands
+
+
+  if (url.startsWith('chrome:') || url.startsWith('javascript:')) {
+    throw new Error('Invalid URL');
+  }
+
+  return url;
+};
 
 class TabsAPI {
   constructor(ctx) {
@@ -2723,7 +2787,10 @@ class TabsAPI {
   }
 
   async create(event, details = {}) {
-    const tab = await this.ctx.store.createTab(details);
+    const url = details.url ? validateExtensionUrl(details.url, event.extension) : undefined;
+    const tab = await this.ctx.store.createTab({ ...details,
+      url
+    });
     const tabDetails = this.getTabDetails(tab);
 
     if (details.active) {
@@ -2759,9 +2826,18 @@ class TabsAPI {
       // if (isSet(info.lastFocusedWindow)) return false
 
       if (isSet(info.status) && info.status !== tab.status) return false;
-      if (isSet(info.title) && info.title !== tab.title) return false; // TODO: pattern match
 
-      if (isSet(info.url) && info.url !== tab.url) return false; // TODO: match URL pattern
+      if (isSet(info.title) && typeof info.title === 'string' && typeof tab.title === 'string') {
+        if (!Object(_common__WEBPACK_IMPORTED_MODULE_1__["matchesTitlePattern"])(info.title, tab.title)) return false;
+      }
+
+      if (isSet(info.url) && typeof tab.url === 'string') {
+        if (typeof info.url === 'string' && !Object(_common__WEBPACK_IMPORTED_MODULE_1__["matchesPattern"])(info.url, tab.url)) {
+          return false;
+        } else if (Array.isArray(info.url) && !info.url.some(pattern => Object(_common__WEBPACK_IMPORTED_MODULE_1__["matchesPattern"])(pattern, tab.url))) {
+          return false;
+        }
+      }
 
       if (isSet(info.windowId)) {
         if (info.windowId === TabsAPI.WINDOW_ID_CURRENT) {
@@ -2803,9 +2879,9 @@ class TabsAPI {
     const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabFromWebContents(event.sender);
     if (!tab) return;
     tabId = tab.id;
-    const props = updateProperties; // TODO: validate URL, prevent 'javascript:'
-
-    if (props.url) await tab.loadURL(props.url);
+    const props = updateProperties;
+    const url = props.url ? validateExtensionUrl(props.url, event.extension) : undefined;
+    if (url) await tab.loadURL(url);
     if (typeof props.muted === 'boolean') tab.setAudioMuted(props.muted);
     if (props.active) this.onActivated(tabId);
     this.onUpdated(tabId);
@@ -2872,7 +2948,7 @@ class TabsAPI {
   onRemoved(tabId) {
     const details = this.ctx.store.tabDetailsCache.has(tabId) ? this.ctx.store.tabDetailsCache.get(tabId) : null;
     this.ctx.store.tabDetailsCache.delete(tabId);
-    const windowId = details ? details.windowId : _windows__WEBPACK_IMPORTED_MODULE_1__["WindowsAPI"].WINDOW_ID_NONE;
+    const windowId = details ? details.windowId : _windows__WEBPACK_IMPORTED_MODULE_2__["WindowsAPI"].WINDOW_ID_NONE;
     const win = typeof windowId !== 'undefined' && windowId > -1 ? electron__WEBPACK_IMPORTED_MODULE_0__["BrowserWindow"].getAllWindows().find(win => win.id === windowId) : null;
     this.ctx.router.broadcastEvent('tabs.onRemoved', tabId, {
       windowId,
@@ -3564,12 +3640,8 @@ class PopupView {
         sandbox: true,
         nodeIntegration: false,
         nodeIntegrationInWorker: false,
-        nativeWindowOpen: true,
-        worldSafeExecuteJavaScript: true,
         contextIsolation: true,
-        ...{
-          enablePreferredSizeMode: true
-        }
+        enablePreferredSizeMode: true
       }
     });
     const untypedWebContents = this.browserWindow.webContents;

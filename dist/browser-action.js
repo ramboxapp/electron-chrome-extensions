@@ -377,7 +377,9 @@ const injectBrowserAction = () => {
         };
 
         this.update = state => {
-          const tabId = typeof this.tab === 'number' && this.tab >= 0 ? this.tab : state.activeTabId || -1;
+          var _this$shadowRoot3;
+
+          const tabId = typeof this.tab === 'number' && this.tab >= 0 ? this.tab : state.activeTabId || -1; // Create or update action buttons
 
           for (const action of state.actions) {
             var _this$shadowRoot;
@@ -399,6 +401,15 @@ const injectBrowserAction = () => {
 
             if (this.partition) browserActionNode.partition = this.partition;
             browserActionNode.tab = tabId;
+          } // Remove any actions no longer in use
+
+
+          const actionNodes = Array.from((_this$shadowRoot3 = this.shadowRoot) === null || _this$shadowRoot3 === void 0 ? void 0 : _this$shadowRoot3.querySelectorAll('.action'));
+
+          for (const actionNode of actionNodes) {
+            if (!state.actions.some(action => action.id === actionNode.id)) {
+              actionNode.remove();
+            }
           }
         };
 
