@@ -330,7 +330,7 @@ const injectBrowserAction = () => {
 
     }
 
-    !customElements.get('browser-action') && customElements.define('browser-action', BrowserActionElement, {
+    customElements.define('browser-action', BrowserActionElement, {
       extends: 'button'
     });
 
@@ -497,7 +497,7 @@ const injectBrowserAction = () => {
 
     }
 
-    !customElements.get('browser-action-list') && customElements.define('browser-action-list', BrowserActionListElement);
+    customElements.define('browser-action-list', BrowserActionListElement);
   }
 
   try {

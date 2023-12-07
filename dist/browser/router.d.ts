@@ -23,7 +23,7 @@ export interface ExtensionEvent {
     sender: WebContents;
     extension: Extension;
 }
-export declare type HandlerCallback = (event: ExtensionEvent, ...args: any[]) => any;
+export type HandlerCallback = (event: ExtensionEvent, ...args: any[]) => any;
 export interface HandlerOptions {
     /** Whether the handler can be invoked on behalf of a different session. */
     allowRemote?: boolean;
@@ -56,7 +56,7 @@ export declare class ExtensionRouter {
     onExtensionMessage(event: Electron.IpcMainInvokeEvent, extensionId: string | undefined, handlerName: string, ...args: any[]): Promise<any>;
     private handle;
     /** Returns a callback to register API handlers for the given context. */
-    apiHandler(): (name: string, callback: HandlerCallback, opts?: HandlerOptions | undefined) => void;
+    apiHandler(): (name: string, callback: HandlerCallback, opts?: HandlerOptions) => void;
     /**
      * Sends extension event to the host for the given extension ID if it
      * registered a listener for it.

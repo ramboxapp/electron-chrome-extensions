@@ -2,7 +2,7 @@
 export interface TabContents extends Electron.WebContents {
     favicon?: string;
 }
-export declare type ContextMenuType = 'all' | 'page' | 'frame' | 'selection' | 'link' | 'editable' | 'image' | 'video' | 'audio' | 'launcher' | 'browser_action' | 'page_action' | 'action';
+export type ContextMenuType = 'all' | 'page' | 'frame' | 'selection' | 'link' | 'editable' | 'image' | 'video' | 'audio' | 'launcher' | 'browser_action' | 'page_action' | 'action';
 /**
  * Get the extension's properly typed Manifest.
  *

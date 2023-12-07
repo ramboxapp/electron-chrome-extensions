@@ -190,7 +190,7 @@ export class ContextMenusAPI {
       if (!extension) continue
 
       const extensionMenuItemOptions: ContextItemConstructorOptions[] = []
-      
+
       for (const [, props] of propItems) {
         if (matchesConditions(props, conditions)) {
           const menuItem = {
@@ -202,7 +202,7 @@ export class ContextMenusAPI {
           extensionMenuItemOptions.push(menuItem)
         }
       }
-      
+
       const topLevelItems = extensionMenuItemOptions.filter((opt) => !opt.props.parentId)
 
       if (topLevelItems.length > 1) {

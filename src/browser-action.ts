@@ -230,9 +230,7 @@ export const injectBrowserAction = () => {
       }
     }
 
-    !customElements.get('browser-action') && customElements.define('browser-action', BrowserActionElement, {
-      extends: 'button',
-    })
+    customElements.define('browser-action', BrowserActionElement, { extends: 'button' })
 
     class BrowserActionListElement extends HTMLElement {
       private observing: boolean = false
@@ -363,6 +361,7 @@ export const injectBrowserAction = () => {
       private update = (state: any) => {
         const tabId =
           typeof this.tab === 'number' && this.tab >= 0 ? this.tab : state.activeTabId || -1
+
         // Create or update action buttons
         for (const action of state.actions) {
           let browserActionNode = this.shadowRoot?.querySelector(
@@ -396,7 +395,7 @@ export const injectBrowserAction = () => {
       }
     }
 
-    !customElements.get('browser-action-list') && customElements.define('browser-action-list', BrowserActionListElement)
+    customElements.define('browser-action-list', BrowserActionListElement)
   }
 
   try {

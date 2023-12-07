@@ -1574,7 +1574,20 @@ class BrowserActionAPI {
 
     const action = this.getAction(extensionId);
     const popupPath = ((_action$tabs$tabId2 = action.tabs[tabId]) === null || _action$tabs$tabId2 === void 0 ? void 0 : _action$tabs$tabId2.popup) || action.popup || undefined;
-    return popupPath && `chrome-extension://${extensionId}/${popupPath}`;
+    let url; // Allow absolute URLs
+
+    try {
+      url = popupPath && new URL(popupPath).href;
+    } catch {} // Fallback to relative path
+
+
+    if (!url) {
+      try {
+        url = popupPath && new URL(popupPath, `chrome-extension://${extensionId}`).href;
+      } catch {}
+    }
+
+    return url;
   } // TODO: Make private for v4 major release.
 
 
@@ -2782,7 +2795,7 @@ class TabsAPI {
   }
 
   getCurrent(event) {
-    const tab = this.ctx.store.getActiveTabFromWebContents(event.sender);
+    const tab = this.ctx.store.getActiveTabOfCurrentWindow();
     return tab ? this.getTabDetails(tab) : undefined;
   }
 
@@ -2863,7 +2876,7 @@ class TabsAPI {
   reload(event, arg1, arg2) {
     const tabId = typeof arg1 === 'number' ? arg1 : undefined;
     const reloadProperties = typeof arg1 === 'object' ? arg1 : typeof arg2 === 'object' ? arg2 : {};
-    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabFromWebContents(event.sender);
+    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow();
     if (!tab) return;
 
     if (reloadProperties !== null && reloadProperties !== void 0 && reloadProperties.bypassCache) {
@@ -2876,7 +2889,7 @@ class TabsAPI {
   async update(event, arg1, arg2) {
     let tabId = typeof arg1 === 'number' ? arg1 : undefined;
     const updateProperties = (typeof arg1 === 'object' ? arg1 : arg2) || {};
-    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabFromWebContents(event.sender);
+    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow();
     if (!tab) return;
     tabId = tab.id;
     const props = updateProperties;
@@ -2899,14 +2912,14 @@ class TabsAPI {
 
   goForward(event, arg1) {
     const tabId = typeof arg1 === 'number' ? arg1 : undefined;
-    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabFromWebContents(event.sender);
+    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow();
     if (!tab) return;
     tab.goForward();
   }
 
   goBack(event, arg1) {
     const tabId = typeof arg1 === 'number' ? arg1 : undefined;
-    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabFromWebContents(event.sender);
+    const tab = tabId ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow();
     if (!tab) return;
     tab.goBack();
   }
@@ -3027,12 +3040,15 @@ class WebNavigationAPI {
       this.ctx.router.broadcastEvent(`webNavigation.${eventName}`, details);
     };
 
-    this.onCreatedNavigationTarget = (event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId) => {
-      const frame = getFrame(frameProcessId, frameRoutingId);
-      const tab = event.sender;
+    this.onCreatedNavigationTarget = (tab, event, ...args) => {
+      // Defaults for backwards compat prior to electron@25.0.0
+      const {
+        url = args[0],
+        frame = getFrame(args[3], args[4])
+      } = event;
       const details = {
         sourceTabId: tab.id,
-        sourceProcessId: frameProcessId,
+        sourceProcessId: frame ? frame.processId : -1,
         sourceFrameId: getFrameId(frame),
         url,
         tabId: tab.id,
@@ -3041,14 +3057,18 @@ class WebNavigationAPI {
       this.sendNavigationEvent('onCreatedNavigationTarget', details);
     };
 
-    this.onBeforeNavigate = (event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId) => {
-      if (isInPlace) return;
-      const frame = getFrame(frameProcessId, frameRoutingId);
-      const tab = event.sender;
+    this.onBeforeNavigate = (tab, event, ...args) => {
+      // Defaults for backwards compat prior to electron@25.0.0
+      const {
+        url = args[0],
+        isSameDocument = args[1],
+        frame = getFrame(args[3], args[4])
+      } = event;
+      if (isSameDocument) return;
       const details = {
         frameId: getFrameId(frame),
         parentFrameId: getParentFrameId(frame),
-        processId: frameProcessId,
+        processId: frame ? frame.processId : -1,
         tabId: tab.id,
         timeStamp: Date.now(),
         url
@@ -3056,9 +3076,8 @@ class WebNavigationAPI {
       this.sendNavigationEvent('onBeforeNavigate', details);
     };
 
-    this.onCommitted = (event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
+    this.onCommitted = (tab, event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
       const frame = getFrame(frameProcessId, frameRoutingId);
-      const tab = event.sender;
       const details = {
         frameId: getFrameId(frame),
         parentFrameId: getParentFrameId(frame),
@@ -3070,9 +3089,8 @@ class WebNavigationAPI {
       this.sendNavigationEvent('onCommitted', details);
     };
 
-    this.onHistoryStateUpdated = (event, url, isMainFrame, frameProcessId, frameRoutingId) => {
+    this.onHistoryStateUpdated = (tab, event, url, isMainFrame, frameProcessId, frameRoutingId) => {
       const frame = getFrame(frameProcessId, frameRoutingId);
-      const tab = event.sender;
       const details = {
         transitionType: '',
         // TODO
@@ -3104,9 +3122,8 @@ class WebNavigationAPI {
       }
     };
 
-    this.onFinishLoad = (event, isMainFrame, frameProcessId, frameRoutingId) => {
+    this.onFinishLoad = (tab, event, isMainFrame, frameProcessId, frameRoutingId) => {
       const frame = getFrame(frameProcessId, frameRoutingId);
-      const tab = event.sender;
       const url = tab.getURL();
       const details = {
         frameId: getFrameId(frame),
@@ -3126,11 +3143,11 @@ class WebNavigationAPI {
   }
 
   observeTab(tab) {
-    tab.once('will-navigate', this.onCreatedNavigationTarget);
-    tab.on('did-start-navigation', this.onBeforeNavigate);
-    tab.on('did-frame-finish-load', this.onFinishLoad);
-    tab.on('did-frame-navigate', this.onCommitted);
-    tab.on('did-navigate-in-page', this.onHistoryStateUpdated);
+    tab.once('will-navigate', this.onCreatedNavigationTarget.bind(this, tab));
+    tab.on('did-start-navigation', this.onBeforeNavigate.bind(this, tab));
+    tab.on('did-frame-finish-load', this.onFinishLoad.bind(this, tab));
+    tab.on('did-frame-navigate', this.onCommitted.bind(this, tab));
+    tab.on('did-navigate-in-page', this.onHistoryStateUpdated.bind(this, tab));
     tab.on('frame-created', (e, {
       frame
     }) => {
@@ -3553,6 +3570,11 @@ __webpack_require__.r(__webpack_exports__);
 
 const debug = __webpack_require__(/*! debug */ "./node_modules/debug/src/index.js")('electron-chrome-extensions:popup');
 
+const supportsPreferredSize = () => {
+  const major = parseInt(process.versions.electron.split('.').shift() || '', 10);
+  return major >= 12;
+};
+
 class PopupView {
   /** Preferred size changes are only received in Electron v12+ */
   constructor(opts) {
@@ -3561,7 +3583,8 @@ class PopupView {
     this.extensionId = void 0;
     this.anchorRect = void 0;
     this.destroyed = false;
-    this.usingPreferredSize = false;
+    this.hidden = true;
+    this.usingPreferredSize = supportsPreferredSize();
     this.readyPromise = void 0;
 
     this.destroy = () => {
@@ -3619,7 +3642,9 @@ class PopupView {
       debug('updatePreferredSize', size);
       this.usingPreferredSize = true;
       this.setSize(size);
-      this.updatePosition();
+      this.updatePosition(); // Wait to reveal popup until it's sized and positioned correctly
+
+      if (this.hidden) this.show();
     };
 
     this.parent = opts.parent;
@@ -3653,6 +3678,13 @@ class PopupView {
     this.readyPromise = this.load(opts.url);
   }
 
+  show() {
+    var _this$browserWindow3;
+
+    this.hidden = false;
+    (_this$browserWindow3 = this.browserWindow) === null || _this$browserWindow3 === void 0 ? void 0 : _this$browserWindow3.show();
+  }
+
   async load(url) {
     const win = this.browserWindow;
 
@@ -3664,7 +3696,13 @@ class PopupView {
 
     if (this.destroyed) return;
 
-    if (!this.usingPreferredSize) {
+    if (this.usingPreferredSize) {
+      // Set small initial size so the preferred size grows to what's needed
+      this.setSize({
+        width: PopupView.BOUNDS.minWidth,
+        height: PopupView.BOUNDS.minHeight
+      });
+    } else {
       // Set large initial size to avoid overflow
       this.setSize({
         width: PopupView.BOUNDS.maxWidth,
@@ -3675,9 +3713,8 @@ class PopupView {
       if (this.destroyed) return;
       await this.queryPreferredSize();
       if (this.destroyed) return;
+      this.show();
     }
-
-    win.show();
   }
 
   isDestroyed() {
@@ -3691,7 +3728,7 @@ class PopupView {
   }
 
   setSize(rect) {
-    var _this$browserWindow3;
+    var _this$browserWindow4;
 
     if (!this.browserWindow || !this.parent) return;
     const width = Math.floor(Math.min(PopupView.BOUNDS.maxWidth, Math.max(rect.width || 0, PopupView.BOUNDS.minWidth)));
@@ -3700,7 +3737,7 @@ class PopupView {
       width,
       height
     });
-    (_this$browserWindow3 = this.browserWindow) === null || _this$browserWindow3 === void 0 ? void 0 : _this$browserWindow3.setBounds({ ...this.browserWindow.getBounds(),
+    (_this$browserWindow4 = this.browserWindow) === null || _this$browserWindow4 === void 0 ? void 0 : _this$browserWindow4.setBounds({ ...this.browserWindow.getBounds(),
       width,
       height
     });
@@ -4233,7 +4270,8 @@ class ExtensionStore extends events__WEBPACK_IMPORTED_MODULE_1__["EventEmitter"]
 
   getActiveTabFromWebContents(wc) {
     const win = this.tabToWindow.get(wc) || electron__WEBPACK_IMPORTED_MODULE_0__["BrowserWindow"].fromWebContents(wc);
-    return win ? this.getActiveTabFromWindow(win) : undefined;
+    const activeTab = win ? this.getActiveTabFromWindow(win) : undefined;
+    return activeTab;
   }
 
   getActiveTabOfCurrentWindow() {
