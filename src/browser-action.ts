@@ -183,12 +183,17 @@ export const injectBrowserAction = () => {
         this.updateId = requestAnimationFrame(this.updateCallback.bind(this))
       }
 
-      private updateIcon(info: any) {
+      private async updateIcon(info: any) {
         const iconSize = 32
         const resizeType = 2
-        const timeParam = info.iconModified ? `&t=${info.iconModified}` : ''
-        const iconUrl = `crx://extension-icon/${this.id}/${iconSize}/${resizeType}?tabId=${this.tab}${timeParam}`
-        const bgImage = `url(${iconUrl})`
+        const extensionId = this.id
+        const tabId = this.tab
+        
+        const data = {tabId, iconSize, resizeType, extensionId};
+        const buffer: ArrayBuffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
+
+        const result = Buffer.from(buffer).toString("base64")
+        const url = `data:image/png;base64,${result}`;
 
         if (this.pendingIcon) {
           this.pendingIcon = undefined
@@ -198,11 +203,11 @@ export const injectBrowserAction = () => {
         const img = (this.pendingIcon = new Image())
         img.onload = () => {
           if (this.isConnected) {
-            this.style.backgroundImage = bgImage
+            this.style.backgroundImage = `url(${url})`
             this.pendingIcon = undefined
           }
         }
-        img.src = iconUrl
+        img.src = url
       }
 
       private updateCallback() {

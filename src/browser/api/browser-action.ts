@@ -145,6 +145,41 @@ export class BrowserActionAPI {
     const preloadOpts = { allowRemote: true, extensionContext: false }
     handle('browserAction.getState', this.getState.bind(this), preloadOpts)
     handle('browserAction.activate', this.activate.bind(this), preloadOpts)
+    handle('browserAction.getIcon', (event, data) => {
+      try {
+        const {tabId, iconSize, resizeType, extensionId} = data;
+        const extension = this.ctx.session.getExtension(extensionId)
+
+        let iconDetails: chrome.browserAction.TabIconDetails | undefined
+
+        const action = this.actionMap.get(extensionId)
+        if (action) {
+          iconDetails = (tabId && action.tabs[tabId]?.icon) || action.icon
+        }
+
+        let iconImage
+
+        if (extension && iconDetails) {
+          if (typeof iconDetails.path === 'string') {
+            const iconAbsPath = resolveExtensionPath(extension, iconDetails.path)
+            if (iconAbsPath) iconImage = nativeImage.createFromPath(iconAbsPath)
+          } else if (typeof iconDetails.path === 'object') {
+            const imagePath = matchSize(iconDetails.path, iconSize, resizeType)
+            const iconAbsPath = imagePath && resolveExtensionPath(extension, imagePath)
+            if (iconAbsPath) iconImage = nativeImage.createFromPath(iconAbsPath)
+          } else if (typeof iconDetails.imageData === 'string') {
+            iconImage = nativeImage.createFromDataURL(iconDetails.imageData)
+          } else if (typeof iconDetails.imageData === 'object') {
+            const imageData = matchSize(iconDetails.imageData as any, iconSize, resizeType)
+            iconImage = imageData ? nativeImage.createFromDataURL(imageData) : undefined
+          }
+        }
+        return iconImage ? iconImage.toPNG() : null
+      } catch (e) {
+        console.error(e);
+        return null;
+      }
+    }, preloadOpts)
     handle(
       'browserAction.addObserver',
       (event) => {

@@ -296,6 +296,7 @@ const injectExtensionAPIs = () => {
           const api = { ...base,
             setTitle: invokeExtension('browserAction.setTitle'),
             getTitle: invokeExtension('browserAction.getTitle'),
+            getIcon: invokeExtension('browserAction.getIcon'),
             setIcon: invokeExtension('browserAction.setIcon', {
               serialize: details => {
                 if (details.imageData) {
