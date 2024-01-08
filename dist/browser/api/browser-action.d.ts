@@ -7,7 +7,6 @@ export declare class BrowserActionAPI {
     private queuedUpdate;
     constructor(ctx: ExtensionContext);
     private setupSession;
-    private handleCrxRequest;
     private getAction;
     removeActions(extensionId: string): void;
     private getPopupUrl;

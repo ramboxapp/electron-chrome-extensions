@@ -1303,15 +1303,6 @@ __webpack_require__.r(__webpack_exports__);
 
 const debug = __webpack_require__(/*! debug */ "./node_modules/debug/src/index.js")('electron-chrome-extensions:browserAction');
 
-if (!electron__WEBPACK_IMPORTED_MODULE_0__["app"].isReady()) {
-  electron__WEBPACK_IMPORTED_MODULE_0__["protocol"].registerSchemesAsPrivileged([{
-    scheme: 'crx',
-    privileges: {
-      bypassCSP: true
-    }
-  }]);
-}
-
 const getBrowserActionDefaults = extension => {
   const manifest = Object(_common__WEBPACK_IMPORTED_MODULE_2__["getExtensionManifest"])(extension);
   const {
@@ -1341,85 +1332,6 @@ class BrowserActionAPI {
     this.popup = void 0;
     this.observers = new Set();
     this.queuedUpdate = false;
-
-    this.handleCrxRequest = (request, callback) => {
-      debug('%s', request.url);
-      let response;
-
-      try {
-        const url = new URL(request.url);
-        const {
-          hostname: requestType
-        } = url;
-
-        switch (requestType) {
-          case 'extension-icon':
-            {
-              const tabId = url.searchParams.get('tabId');
-              const fragments = url.pathname.split('/');
-              const extensionId = fragments[1];
-              const imageSize = parseInt(fragments[2], 10);
-              const resizeType = parseInt(fragments[3], 10) || _common__WEBPACK_IMPORTED_MODULE_2__["ResizeType"].Up;
-              const extension = this.ctx.session.getExtension(extensionId);
-              let iconDetails;
-              const action = this.actionMap.get(extensionId);
-
-              if (action) {
-                var _action$tabs$tabId;
-
-                iconDetails = tabId && ((_action$tabs$tabId = action.tabs[tabId]) === null || _action$tabs$tabId === void 0 ? void 0 : _action$tabs$tabId.icon) || action.icon;
-              }
-
-              let iconImage;
-
-              if (extension && iconDetails) {
-                if (typeof iconDetails.path === 'string') {
-                  const iconAbsPath = Object(_common__WEBPACK_IMPORTED_MODULE_2__["resolveExtensionPath"])(extension, iconDetails.path);
-                  if (iconAbsPath) iconImage = electron__WEBPACK_IMPORTED_MODULE_0__["nativeImage"].createFromPath(iconAbsPath);
-                } else if (typeof iconDetails.path === 'object') {
-                  const imagePath = Object(_common__WEBPACK_IMPORTED_MODULE_2__["matchSize"])(iconDetails.path, imageSize, resizeType);
-                  const iconAbsPath = imagePath && Object(_common__WEBPACK_IMPORTED_MODULE_2__["resolveExtensionPath"])(extension, imagePath);
-                  if (iconAbsPath) iconImage = electron__WEBPACK_IMPORTED_MODULE_0__["nativeImage"].createFromPath(iconAbsPath);
-                } else if (typeof iconDetails.imageData === 'string') {
-                  iconImage = electron__WEBPACK_IMPORTED_MODULE_0__["nativeImage"].createFromDataURL(iconDetails.imageData);
-                } else if (typeof iconDetails.imageData === 'object') {
-                  const imageData = Object(_common__WEBPACK_IMPORTED_MODULE_2__["matchSize"])(iconDetails.imageData, imageSize, resizeType);
-                  iconImage = imageData ? electron__WEBPACK_IMPORTED_MODULE_0__["nativeImage"].createFromDataURL(imageData) : undefined;
-                }
-              }
-
-              if (iconImage) {
-                response = {
-                  statusCode: 200,
-                  mimeType: 'image/png',
-                  data: iconImage.toPNG()
-                };
-              } else {
-                response = {
-                  statusCode: 400
-                };
-              }
-
-              break;
-            }
-
-          default:
-            {
-              response = {
-                statusCode: 400
-              };
-            }
-        }
-      } catch (e) {
-        console.error(e);
-        response = {
-          statusCode: 500
-        };
-      }
-
-      callback(response);
-    };
-
     const handle = this.ctx.router.apiHandler();
 
     const getter = propName => ({
@@ -1518,9 +1430,9 @@ class BrowserActionAPI {
         const action = this.actionMap.get(extensionId);
 
         if (action) {
-          var _action$tabs$tabId2;
+          var _action$tabs$tabId;
 
-          iconDetails = tabId && ((_action$tabs$tabId2 = action.tabs[tabId]) === null || _action$tabs$tabId2 === void 0 ? void 0 : _action$tabs$tabId2.icon) || action.icon;
+          iconDetails = tabId && ((_action$tabs$tabId = action.tabs[tabId]) === null || _action$tabs$tabId === void 0 ? void 0 : _action$tabs$tabId.icon) || action.icon;
         }
 
         let iconImage;
@@ -1585,7 +1497,6 @@ class BrowserActionAPI {
     session.on('extension-unloaded', (event, extension) => {
       this.removeActions(extension.id);
     });
-    session.protocol.registerBufferProtocol('crx', this.handleCrxRequest);
   }
 
   getAction(extensionId) {
@@ -1612,10 +1523,10 @@ class BrowserActionAPI {
   }
 
   getPopupUrl(extensionId, tabId) {
-    var _action$tabs$tabId3;
+    var _action$tabs$tabId2;
 
     const action = this.getAction(extensionId);
-    const popupPath = ((_action$tabs$tabId3 = action.tabs[tabId]) === null || _action$tabs$tabId3 === void 0 ? void 0 : _action$tabs$tabId3.popup) || action.popup || undefined;
+    const popupPath = ((_action$tabs$tabId2 = action.tabs[tabId]) === null || _action$tabs$tabId2 === void 0 ? void 0 : _action$tabs$tabId2.popup) || action.popup || undefined;
     let url; // Allow absolute URLs
 
     try {
