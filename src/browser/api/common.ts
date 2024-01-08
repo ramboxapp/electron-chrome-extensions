@@ -37,6 +37,9 @@ export const getExtensionUrl = (extension: Electron.Extension, uri: string) => {
 }
 
 export const resolveExtensionPath = (extension: Electron.Extension, uri: string) => {
+  // Fixes issue with Dark Reader extension's icon.
+  if (uri.startsWith('../')) uri = uri.slice(3);
+
   const resPath = path.join(extension.path, uri)
 
   // prevent any parent traversals

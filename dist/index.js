@@ -1901,6 +1901,8 @@ const getExtensionUrl = (extension, uri) => {
   } catch {}
 };
 const resolveExtensionPath = (extension, uri) => {
+  // Fixes issue with Dark Reader extension's icon.
+  if (uri.startsWith('../')) uri = uri.slice(3);
   const resPath = path__WEBPACK_IMPORTED_MODULE_1__["join"](extension.path, uri); // prevent any parent traversals
 
   if (!resPath.startsWith(extension.path)) return;
