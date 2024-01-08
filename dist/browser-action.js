@@ -282,35 +282,40 @@ const injectBrowserAction = () => {
       }
 
       async updateIcon(info) {
-        const iconSize = 32;
-        const resizeType = 2;
-        const extensionId = this.id;
-        const tabId = this.tab;
-        const data = {
-          tabId,
-          iconSize,
-          resizeType,
-          extensionId
-        };
-        const buffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
-        const result = Buffer.from(buffer).toString("base64");
-        const url = `data:image/png;base64,${result}`;
+        try {
+          const iconSize = 32;
+          const resizeType = 2;
+          const extensionId = this.id;
+          const tabId = this.tab;
+          const data = {
+            tabId,
+            iconSize,
+            resizeType,
+            extensionId
+          };
+          const buffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
+          const result = Buffer.from(buffer).toString("base64");
+          if (!result) return;
+          const url = `data:image/png;base64,${result}`;
 
-        if (this.pendingIcon) {
-          this.pendingIcon = undefined;
-        } // Preload icon to prevent it from blinking
-
-
-        const img = this.pendingIcon = new Image();
-
-        img.onload = () => {
-          if (this.isConnected) {
-            this.style.backgroundImage = `url(${url})`;
+          if (this.pendingIcon) {
             this.pendingIcon = undefined;
-          }
-        };
+          } // Preload icon to prevent it from blinking
 
-        img.src = url;
+
+          const img = this.pendingIcon = new Image();
+
+          img.onload = () => {
+            if (this.isConnected) {
+              this.style.backgroundImage = `url(${url})`;
+              this.pendingIcon = undefined;
+            }
+          };
+
+          img.src = url;
+        } catch (error) {
+          console.log(`updateIcon: There's been an error while updating the icon`, error);
+        }
       }
 
       updateCallback() {
