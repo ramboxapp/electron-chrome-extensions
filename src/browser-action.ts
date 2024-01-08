@@ -194,6 +194,7 @@ export const injectBrowserAction = () => {
           const buffer: ArrayBuffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
   
           const result = Buffer.from(buffer).toString("base64")
+          if (!result) return
           const url = `data:image/png;base64,${result}`;
   
           if (this.pendingIcon) {
