@@ -192,7 +192,7 @@ export const injectBrowserAction = () => {
           
           const data = {tabId, iconSize, resizeType, extensionId};
           const buffer: ArrayBuffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
-  
+          if (!buffer) return
           const result = Buffer.from(buffer).toString("base64")
           if (!result) return
           const url = `data:image/png;base64,${result}`;
