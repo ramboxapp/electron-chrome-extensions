@@ -10,6 +10,8 @@ export const injectBrowserAction = () => {
     return ipcRenderer.invoke('crx-msg-remote', partition, name, ...args)
   }
 
+  const onError = (name: string, partition: string, ...args: any[]): void => { ipcRenderer.invoke('BROWSER_ACTION_ERROR', partition, name, ...args) }
+
   interface ActivateDetails {
     eventType: string
     extensionId: string
@@ -192,9 +194,9 @@ export const injectBrowserAction = () => {
           
           const data = {tabId, iconSize, resizeType, extensionId};
           const buffer: ArrayBuffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
-          if (!buffer) return
+          if (!buffer) throw new Error('No buffer returned from browserAction.getIcon');
           const result = Buffer.from(buffer).toString("base64")
-          if (!result) return
+          if (!result) throw new Error('No base64 - browserAction.getIcon');
           const url = `data:image/png;base64,${result}`;
   
           if (this.pendingIcon) {
@@ -211,6 +213,7 @@ export const injectBrowserAction = () => {
           }
           img.src = url
         } catch (error) {
+          onError('browserAction.getIcon', this.partition || DEFAULT_PARTITION, {tabId: this.tab, iconSize: 32, resizeType: 2, extensionId: this.id});
           console.log(`updateIcon: There's been an error while updating the icon`,error);
         }
       }

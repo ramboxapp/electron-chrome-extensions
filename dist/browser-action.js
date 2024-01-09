@@ -112,6 +112,10 @@ const injectBrowserAction = () => {
     return electron__WEBPACK_IMPORTED_MODULE_0__["ipcRenderer"].invoke('crx-msg-remote', partition, name, ...args);
   };
 
+  const onError = (name, partition, ...args) => {
+    electron__WEBPACK_IMPORTED_MODULE_0__["ipcRenderer"].invoke('BROWSER_ACTION_ERROR', partition, name, ...args);
+  };
+
   const browserAction = {
     addEventListener(name, listener) {
       internalEmitter.addListener(name, listener);
@@ -294,9 +298,9 @@ const injectBrowserAction = () => {
             extensionId
           };
           const buffer = await invoke('browserAction.getIcon', this.partition || DEFAULT_PARTITION, data);
-          if (!buffer) return;
+          if (!buffer) throw new Error('No buffer returned from browserAction.getIcon');
           const result = Buffer.from(buffer).toString("base64");
-          if (!result) return;
+          if (!result) throw new Error('No base64 - browserAction.getIcon');
           const url = `data:image/png;base64,${result}`;
 
           if (this.pendingIcon) {
@@ -315,6 +319,12 @@ const injectBrowserAction = () => {
 
           img.src = url;
         } catch (error) {
+          onError('browserAction.getIcon', this.partition || DEFAULT_PARTITION, {
+            tabId: this.tab,
+            iconSize: 32,
+            resizeType: 2,
+            extensionId: this.id
+          });
           console.log(`updateIcon: There's been an error while updating the icon`, error);
         }
       }
