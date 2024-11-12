@@ -3725,8 +3725,8 @@ class PopupView {
       const tabPosition = await this.parent.webContents.executeJavaScript(`((${() => {
         var _document$querySelect;
 
-        const className = ((_document$querySelect = document.querySelector('.ant-tabs-bar')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.className) || '';
-        return className.includes('top-bar') ? 'top' : className.includes('right-bar') ? 'right' : className.includes('bottom-bar') ? 'bottom' : 'left';
+        const className = ((_document$querySelect = document.querySelector('.maintabs')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.className) || '';
+        return className.includes('tabs-top') ? 'top' : className.includes('tabs-right') ? 'right' : className.includes('tabs-bottom-bar') ? 'bottom' : 'left';
       }})())`);
       let {
         x,
