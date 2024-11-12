@@ -220,7 +220,7 @@ export class PopupView {
       const tabPosition: 'left' | 'right' | 'bottom' | 'top' = await this.parent.webContents.executeJavaScript(
         `((${() => {
           const className = document.querySelector('.maintabs')?.className || '';
-          return className.includes('tabs-top') ? 'top' : className.includes('tabs-right') ? 'right' : className.includes('tabs-bottom-bar') ? 'bottom' : 'left';
+          return className.includes('tabs-top') ? 'top' : className.includes('tabs-right') ? 'right' : className.includes('tabs-bottom') ? 'bottom' : 'left';
         }})())`
       );
         

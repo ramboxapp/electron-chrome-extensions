@@ -3726,7 +3726,7 @@ class PopupView {
         var _document$querySelect;
 
         const className = ((_document$querySelect = document.querySelector('.maintabs')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.className) || '';
-        return className.includes('tabs-top') ? 'top' : className.includes('tabs-right') ? 'right' : className.includes('tabs-bottom-bar') ? 'bottom' : 'left';
+        return className.includes('tabs-top') ? 'top' : className.includes('tabs-right') ? 'right' : className.includes('tabs-bottom') ? 'bottom' : 'left';
       }})())`);
       let {
         x,
